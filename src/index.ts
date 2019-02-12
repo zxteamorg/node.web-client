@@ -6,7 +6,7 @@ import { LoggerLike, CancellationTokenLike } from "@zxteam/contract";
 import { Disposable } from "@zxteam/disposable";
 import { loggerFactory } from "@zxteam/logger";
 
-import { WebClient, WebClientLike } from "@zxteam/webclient";
+import { WebClient, WebClientLike, WebClientInvokeResult } from "@zxteam/webclient";
 
 export namespace RestClient {
 	export interface LimitOpts extends Limit.Opts {
@@ -140,9 +140,10 @@ export class RestClient extends Disposable {
 			const url: URL = new URL(path, this._baseUrl);
 			const headers = opts && opts.headers;
 
-			const result = await this._webClient.invoke({ url, method: "GET", headers }, cancellationToken);
+			const result: WebClientInvokeResult =
+				await this._webClient.invoke({ url, method: "GET", headers }, cancellationToken);
 
-			return JSON.parse(result.toString());
+			return result.body ? JSON.parse(result.body.toString()) : null;
 		} finally {
 			if (limitToken !== null) {
 				limitToken.commit();
@@ -172,10 +173,11 @@ export class RestClient extends Disposable {
 			const url: URL = new URL(path, this._baseUrl);
 			const headers = opts && opts.headers;
 
-			const result = await this._webClient.invoke({ url, method: "POST", body, headers }, cancellationToken);
+			const result: WebClientInvokeResult =
+				await this._webClient.invoke({ url, method: "POST", body, headers }, cancellationToken);
 
-			return JSON.parse(result.toString());
-		} finally {
+				return result.body ? JSON.parse(result.body.toString()) : null;
+			} finally {
 			if (limitToken !== null) {
 				limitToken.commit();
 			}
