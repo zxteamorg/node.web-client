@@ -1,0 +1,43 @@
+{
+	"name": "@zxteam/restclient",
+	"version": "2.0.0",
+	"description": "ZXTeam's REST API Client. CancellationToken and Limits are supported.",
+	"author": {
+		"name": "Maxim Anurin",
+		"email": "maxim.anurin@zxteam.org",
+		"url": "http://www.anurin.name"
+	},
+	"contributors": [
+		{
+			"name": "Serg Zgama",
+			"email": "serg.zgama@zxteam.org"
+		}
+	],
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^10.12.24",
+		"@zxnode/build": "0.0.30",
+		"ptask.js": "^2.0.0"
+	},
+	"dependencies": {
+		"@zxteam/contract": "^2.0.0",
+		"@zxteam/disposable": "^2.0.0",
+		"@zxteam/logger": "^2.0.0",
+		"@zxteam/webclient": "^2.0.0",
+		"limit.js": "^2.0.0"
+	},
+	"keywords": [],
+	"repository": {
+		"type": "git",
+		"url": "ssh://git@dev.zxteam.net:22282/pub/node/webclient.git"
+	},
+	"bugs": {
+		"url": "https://dev.zxteam.net/pub/node/webclient/issues"
+	},
+	"homepage": "https://dev.zxteam.net/pub/node/webclient",
+	"scripts": {
+		"build": "zxbuild clean dist",
+		"test": "nyc --exclude submodules --exclude test --reporter=lcov --reporter=text --reporter=text-summary mocha \"test/**/*.test.js\" --recursive --timeout 10000"
+	},
+	"private": true
+}
