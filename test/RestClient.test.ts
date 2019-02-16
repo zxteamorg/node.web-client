@@ -8,11 +8,11 @@ import { RestClient } from "../src/index";
 describe("RestClient tests", function () {
 	describe("Tests with limits", function () {
 		class MyApiClient extends RestClient {
-			public invokeGet(path: string, opts?: {
+			public invoke(path: string, method: "GET" | "POST" | string, opts?: {
 				headers?: http.OutgoingHttpHeaders,
 				cancellationToken?: CancellationTokenLike
 			}) {
-				return super.invokeGet(path, opts);
+				return super.invoke(path, method, opts);
 			}
 		}
 
@@ -36,7 +36,7 @@ describe("RestClient tests", function () {
 			try {
 				for (let index = 0; index < 10; index++) {
 					jobs.push(
-						apiClient.invokeGet("a")
+						apiClient.invoke("a", "GET")
 							.then(() => { ++completeCount; })
 							.catch((reason: any) => { errors.push(reason); })
 					);
@@ -71,7 +71,7 @@ describe("RestClient tests", function () {
 			try {
 				for (let index = 0; index < 10; index++) {
 					jobs.push(
-						apiClient.invokeGet("a", { cancellationToken: cts.token })
+						apiClient.invoke("a", "GET", { cancellationToken: cts.token })
 							.then(() => { ++completeCount; })
 							.catch((reason: any) => { errors.push(reason); })
 					);

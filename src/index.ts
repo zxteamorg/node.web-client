@@ -16,21 +16,23 @@ export namespace RestClient {
 		url: string;
 		limit?: LimitOpts;
 		webClient?: WebClient.Opts | WebClientLike;
+		userAgent?: string;
 	}
 }
 export class RestClient extends Disposable {
 	private static _webClientFactory?: (opts?: WebClient.Opts) => WebClientLike;
 	private readonly _baseUrl: URL;
 	private readonly _webClient: WebClientLike;
-	private readonly _limit?: { instance: Limit, timeout: number };
+	private readonly _userAgent?: string;
+	private readonly _limitHandle?: { instance: Limit, timeout: number };
 	private _log: LoggerLike | null;
 
 	public constructor(opts: RestClient.Opts) {
 		super();
-		const { url, limit, webClient } = opts;
+		const { url, limit, webClient, userAgent } = opts;
 		this._baseUrl = new URL(url);
 		if (limit) {
-			this._limit = {
+			this._limitHandle = {
 				instance: limitFactory(limit),
 				timeout: limit.timeout
 			};
@@ -42,6 +44,9 @@ export class RestClient extends Disposable {
 			this._webClient = RestClient._webClientFactory(webClient);
 		} else {
 			this._webClient = new WebClient(webClient);
+		}
+		if (userAgent !== undefined) {
+			this._userAgent = userAgent;
 		}
 	}
 
@@ -77,19 +82,14 @@ export class RestClient extends Disposable {
 	): Promise<any> {
 		super.verifyNotDisposed();
 
-		let path = webMethodName;
-		let headers: http.OutgoingHttpHeaders | undefined;
-		let cancellationToken: CancellationTokenLike | undefined;
+		const { queryArgs, headers, cancellationToken } = (
+			() => opts || { queryArgs: undefined, headers: undefined, cancellationToken: undefined }
+		)();
+		const path = queryArgs !== undefined ?
+			webMethodName + "?" + querystring.stringify(queryArgs) :
+			webMethodName;
 
-		if (opts) {
-			headers = opts.headers;
-			cancellationToken = opts.cancellationToken;
-			if (opts.queryArgs) {
-				path += "?" + querystring.stringify(opts.queryArgs);
-			}
-		}
-
-		return this.invokeGet(path, { headers, cancellationToken });
+		return this.invoke(path, "GET", { headers, cancellationToken });
 	}
 	protected invokeWebMethodPost(
 		webMethodName: string,
@@ -101,47 +101,76 @@ export class RestClient extends Disposable {
 	): Promise<any> {
 		super.verifyNotDisposed();
 
-		const bodyStr = opts && opts.postArgs && querystring.stringify(opts.postArgs);
-		const body = bodyStr ? Buffer.from(bodyStr) : Buffer.alloc(0);
+		const { postArgs, headers, cancellationToken } = (
+			() => opts || { postArgs: undefined, headers: undefined, cancellationToken: undefined }
+		)();
 
-		let headers = {
-			"Content-Type": "application/x-www-form-urlencoded",
-			"Content-Length": body.byteLength
-		};
+		const bodyStr = postArgs && querystring.stringify(postArgs);
+		const { body, bodyLength } = (() => {
+			if (bodyStr !== undefined) {
+				const bodyBuffer = Buffer.from(bodyStr);
+				return { body: bodyBuffer, bodyLength: bodyBuffer.byteLength };
+			} else {
+				return { body: undefined, bodyLength: 0 };
+			}
+		})();
 
-		if (opts && opts.headers) {
-			headers = { ...headers, ...opts.headers };
-		}
+		const friendlyHeaders = (() => {
+			const baseHeaders: http.OutgoingHttpHeaders = {
+				"Content-Type": "application/x-www-form-urlencoded",
+				"Content-Length": bodyLength
+			};
+			return headers !== undefined ? { ...baseHeaders, ...headers } : baseHeaders;
+		})();
 
-		const cancellationToken = opts && opts.cancellationToken;
-
-		return this.invokePost(webMethodName, body, { headers, cancellationToken });
+		return this.invoke(webMethodName, "POST", { bodyBufferOrObject: body, headers: friendlyHeaders, cancellationToken });
 	}
-	protected async invokeGet(
+	protected async invoke(
 		path: string,
+		method: "GET" | "POST" | string,
 		opts?: {
 			headers?: http.OutgoingHttpHeaders,
+			bodyBufferOrObject?: Buffer,
 			cancellationToken?: CancellationTokenLike
-		}
-	): Promise<any> {
+		}): Promise<any> {
 		super.verifyNotDisposed();
 
-		const cancellationToken = opts && opts.cancellationToken;
+		const { bodyBufferOrObject, headers, cancellationToken } = (
+			() => opts || { bodyBufferOrObject: undefined, headers: undefined, cancellationToken: undefined }
+		)();
+
+		const friendlyHeaders = headers !== undefined ?
+			(
+				// set User-Agent only if this is not present by user
+				(this._userAgent !== undefined && !("User-Agent" in headers)) ?
+					{ ...headers, "User-Agent": this._userAgent } :
+					headers
+			) :
+			undefined;
+
+		const friendlyBody: Buffer | undefined =
+			bodyBufferOrObject !== undefined ?
+				(
+					// Serialize JSON if body is object
+					bodyBufferOrObject instanceof Buffer ?
+						bodyBufferOrObject :
+						Buffer.from(JSON.stringify(bodyBufferOrObject))
+				)
+				: undefined;
 
 		let limitToken: LimitToken | null = null;
-		if (this._limit !== undefined) {
-			if (cancellationToken) {
-				limitToken = await this._limit.instance.accrueTokenLazy(this._limit.timeout || 500, cancellationToken);
+		if (this._limitHandle !== undefined) {
+			if (cancellationToken !== undefined) {
+				limitToken = await this._limitHandle.instance.accrueTokenLazy(this._limitHandle.timeout || 500, cancellationToken);
 			} else {
-				limitToken = await this._limit.instance.accrueTokenLazy(this._limit.timeout || 500);
+				limitToken = await this._limitHandle.instance.accrueTokenLazy(this._limitHandle.timeout || 500);
 			}
 		}
 		try {
 			const url: URL = new URL(path, this._baseUrl);
-			const headers = opts && opts.headers;
 
 			const result: WebClientInvokeResult =
-				await this._webClient.invoke({ url, method: "GET", headers }, cancellationToken);
+				await this._webClient.invoke({ url, method, body: friendlyBody, headers: friendlyHeaders }, cancellationToken);
 
 			return result.body ? JSON.parse(result.body.toString()) : null;
 		} finally {
@@ -150,43 +179,10 @@ export class RestClient extends Disposable {
 			}
 		}
 	}
-	protected async invokePost(
-		path: string,
-		body: Buffer,
-		opts?: {
-			headers?: http.OutgoingHttpHeaders,
-			cancellationToken?: CancellationTokenLike
-		}): Promise<any> {
-		super.verifyNotDisposed();
-
-		const cancellationToken = opts && opts.cancellationToken;
-
-		let limitToken: LimitToken | null = null;
-		if (this._limit !== undefined) {
-			if (cancellationToken) {
-				limitToken = await this._limit.instance.accrueTokenLazy(this._limit.timeout || 500, cancellationToken);
-			} else {
-				limitToken = await this._limit.instance.accrueTokenLazy(this._limit.timeout || 500);
-			}
-		}
-		try {
-			const url: URL = new URL(path, this._baseUrl);
-			const headers = opts && opts.headers;
-
-			const result: WebClientInvokeResult =
-				await this._webClient.invoke({ url, method: "POST", body, headers }, cancellationToken);
-
-				return result.body ? JSON.parse(result.body.toString()) : null;
-			} finally {
-			if (limitToken !== null) {
-				limitToken.commit();
-			}
-		}
-	}
 
 	protected async onDispose(): Promise<void> {
-		if (this._limit !== undefined) {
-			await this._limit.instance.dispose();
+		if (this._limitHandle !== undefined) {
+			await this._limitHandle.instance.dispose();
 		}
 	}
 }
