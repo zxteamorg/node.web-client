@@ -13,7 +13,6 @@ export namespace RestClient {
 		timeout: number;
 	}
 	export interface Opts {
-		url: string;
 		limit?: LimitOpts;
 		webClient?: WebClient.Opts | WebClientLike;
 		userAgent?: string;
@@ -27,10 +26,10 @@ export class RestClient extends Disposable {
 	private readonly _limitHandle?: { instance: Limit, timeout: number };
 	private _log: LoggerLike | null;
 
-	public constructor(opts: RestClient.Opts) {
+	public constructor(url: URL | string, opts: RestClient.Opts) {
 		super();
-		const { url, limit, webClient, userAgent } = opts;
-		this._baseUrl = new URL(url);
+		const { limit, webClient, userAgent } = opts;
+		this._baseUrl = typeof url === "string" ? new URL(url) : url;
 		if (limit) {
 			this._limitHandle = {
 				instance: limitFactory(limit),
