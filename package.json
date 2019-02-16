@@ -1,6 +1,6 @@
 {
 	"name": "@zxteam/restclient",
-	"version": "2.0.3",
+	"version": "2.0.4",
 	"description": "ZXTeam's REST API Client. CancellationToken and Limits are supported.",
 	"author": {
 		"name": "Maxim Anurin",

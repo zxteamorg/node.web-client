@@ -145,7 +145,11 @@ export class RestClient extends Disposable {
 					{ ...headers, "User-Agent": this._userAgent } :
 					headers
 			) :
-			undefined;
+			(
+				this._userAgent !== undefined ?
+					{ "User-Agent": this._userAgent } :
+					undefined
+			);
 
 		const friendlyBody: Buffer | undefined =
 			bodyBufferOrObject !== undefined ?
