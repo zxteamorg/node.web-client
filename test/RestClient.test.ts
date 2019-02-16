@@ -1,4 +1,5 @@
 import * as http from "http";
+import { URL } from "url";
 import { assert } from "chai";
 import { CancellationTokenLike } from "@zxteam/contract";
 import Task, { CancelledError } from "ptask.js";
@@ -17,8 +18,7 @@ describe("RestClient tests", function () {
 		}
 
 		it("MyApiClient GET should invoke http:// (with limit)", async function () {
-			const apiClient = new MyApiClient({
-				url: "http://www.google.com",
+			const apiClient = new MyApiClient("http://www.google.com", {
 				limit: {
 					perSecond: 2,
 					perMinute: 4,
@@ -51,8 +51,7 @@ describe("RestClient tests", function () {
 		});
 
 		it("MyApiClient GET should cancel() ", async function () {
-			const apiClient = new MyApiClient({
-				url: "http://www.google.com",
+			const apiClient = new MyApiClient(new URL("http://www.google.com"), {
 				limit: {
 					perSecond: 2,
 					perMinute: 4,
