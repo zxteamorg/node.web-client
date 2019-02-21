@@ -20,12 +20,9 @@ describe("RestClient tests", function () {
 		it("MyApiClient GET should invoke http:// (with limit)", async function () {
 			const apiClient = new MyApiClient("http://www.google.com", {
 				limit: {
-					perSecond: 2,
-					perMinute: 4,
-					perHour: 50,
-					parallel: 2
+					instance: { perSecond: 2, perMinute: 4, perHour: 50, parallel: 2 },
+					timeout: 3000 // timeout for accure token
 				},
-				limitTimeout: 3000, // timeout for accure token
 				webClient: {
 					timeout: 1000 // timeout for web request
 				}
@@ -53,12 +50,9 @@ describe("RestClient tests", function () {
 		it("MyApiClient GET should cancel() ", async function () {
 			const apiClient = new MyApiClient(new URL("http://www.google.com"), {
 				limit: {
-					perSecond: 2,
-					perMinute: 4,
-					perHour: 50,
-					parallel: 2
+					instance: { perSecond: 2, perMinute: 4, perHour: 50, parallel: 2 },
+					timeout: 3000 // timeout for accure token
 				},
-				limitTimeout: 3000, // timeout for accure token
 				webClient: {
 					timeout: 1000 // timeout for web request
 				}

@@ -9,9 +9,13 @@ import { loggerFactory } from "@zxteam/logger";
 import { WebClient, WebClientLike, WebClientInvokeResult } from "@zxteam/webclient";
 
 export namespace RestClient {
+	export interface LimitOpts {
+		instance: Limit.Opts | Limit;
+		timeout: number;
+	}
+
 	export interface Opts {
-		limit?: Limit.Opts | Limit;
-		limitTimeout: number;
+		limit?: LimitOpts;
 		webClient?: WebClient.Opts | WebClientLike;
 		userAgent?: string;
 	}
@@ -26,14 +30,15 @@ export class RestClient extends Disposable {
 
 	public constructor(url: URL | string, opts: RestClient.Opts) {
 		super();
-		const { limit, limitTimeout, webClient, userAgent } = opts;
+		const { limit, webClient, userAgent } = opts;
 		this._baseUrl = typeof url === "string" ? new URL(url) : url;
 		if (limit) {
-			this._limitHandle = Limit.isLimitOpts(limit) ?
+
+			this._limitHandle = Limit.isLimitOpts(limit.instance) ?
 				{
-					instance: limitFactory(limit), isOwnInstance: true, timeout: limitTimeout
+					instance: limitFactory(limit.instance), isOwnInstance: true, timeout: limit.timeout
 				} : {
-					instance: limit, isOwnInstance: false, timeout: limitTimeout
+					instance: limit.instance, isOwnInstance: false, timeout: limit.timeout
 				};
 		}
 		this._log = null;
