@@ -9,11 +9,9 @@ import { loggerFactory } from "@zxteam/logger";
 import { WebClient, WebClientLike, WebClientInvokeResult } from "@zxteam/webclient";
 
 export namespace RestClient {
-	export interface LimitOpts extends Limit.Opts {
-		timeout: number;
-	}
 	export interface Opts {
-		limit?: LimitOpts;
+		limit?: Limit.Opts | Limit;
+		limitTimeout: number;
 		webClient?: WebClient.Opts | WebClientLike;
 		userAgent?: string;
 	}
@@ -23,18 +21,20 @@ export class RestClient extends Disposable {
 	private readonly _baseUrl: URL;
 	private readonly _webClient: WebClientLike;
 	private readonly _userAgent?: string;
-	private readonly _limitHandle?: { instance: Limit, timeout: number };
+	private readonly _limitHandle?: { instance: Limit, timeout: number, isOwnInstance: boolean };
 	private _log: LoggerLike | null;
 
 	public constructor(url: URL | string, opts: RestClient.Opts) {
 		super();
-		const { limit, webClient, userAgent } = opts;
+		const { limit, limitTimeout, webClient, userAgent } = opts;
 		this._baseUrl = typeof url === "string" ? new URL(url) : url;
 		if (limit) {
-			this._limitHandle = {
-				instance: limitFactory(limit),
-				timeout: limit.timeout
-			};
+			this._limitHandle = Limit.isLimitOpts(limit) ?
+				{
+					instance: limitFactory(limit), isOwnInstance: true, timeout: limitTimeout
+				} : {
+					instance: limit, isOwnInstance: false, timeout: limitTimeout
+				};
 		}
 		this._log = null;
 		if (webClient && "invoke" in webClient) {
@@ -90,6 +90,7 @@ export class RestClient extends Disposable {
 
 		return this.invoke(path, "GET", { headers, cancellationToken });
 	}
+
 	protected invokeWebMethodPost(
 		webMethodName: string,
 		opts?: {
@@ -124,6 +125,7 @@ export class RestClient extends Disposable {
 
 		return this.invoke(webMethodName, "POST", { bodyBufferOrObject: body, headers: friendlyHeaders, cancellationToken });
 	}
+
 	protected async invoke(
 		path: string,
 		method: "GET" | "POST" | string,
@@ -185,7 +187,9 @@ export class RestClient extends Disposable {
 
 	protected async onDispose(): Promise<void> {
 		if (this._limitHandle !== undefined) {
-			await this._limitHandle.instance.dispose();
+			if (this._limitHandle.isOwnInstance) {
+				await this._limitHandle.instance.dispose();
+			}
 		}
 	}
 }

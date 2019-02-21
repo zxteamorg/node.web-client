@@ -23,9 +23,9 @@ describe("RestClient tests", function () {
 					perSecond: 2,
 					perMinute: 4,
 					perHour: 50,
-					parallel: 2,
-					timeout: 3000 // timeout for accure token
+					parallel: 2
 				},
+				limitTimeout: 3000, // timeout for accure token
 				webClient: {
 					timeout: 1000 // timeout for web request
 				}
@@ -56,9 +56,9 @@ describe("RestClient tests", function () {
 					perSecond: 2,
 					perMinute: 4,
 					perHour: 50,
-					parallel: 2,
-					timeout: 3000 // timeout for accure token
+					parallel: 2
 				},
+				limitTimeout: 3000, // timeout for accure token
 				webClient: {
 					timeout: 1000 // timeout for web request
 				}
