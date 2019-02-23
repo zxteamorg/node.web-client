@@ -15,9 +15,13 @@ export namespace RestClient {
 	}
 
 	export interface Opts {
-		limit?: LimitOpts;
-		webClient?: WebClient.Opts | WebClientLike;
-		userAgent?: string;
+		readonly limit?: LimitOpts;
+		readonly webClient?: WebClient.Opts | WebClientLike;
+		readonly userAgent?: string;
+	}
+
+	export interface Response extends WebClientInvokeResult {
+		readonly bodyAsJson: any;
 	}
 }
 export class RestClient extends Disposable {
@@ -28,29 +32,30 @@ export class RestClient extends Disposable {
 	private readonly _limitHandle?: { instance: Limit, timeout: number, isOwnInstance: boolean };
 	private _log: LoggerLike | null;
 
-	public constructor(url: URL | string, opts: RestClient.Opts) {
+	public constructor(url: URL | string, opts?: RestClient.Opts) {
 		super();
-		const { limit, webClient, userAgent } = opts;
 		this._baseUrl = typeof url === "string" ? new URL(url) : url;
-		if (limit) {
-
-			this._limitHandle = Limit.isLimitOpts(limit.instance) ?
-				{
-					instance: limitFactory(limit.instance), isOwnInstance: true, timeout: limit.timeout
-				} : {
-					instance: limit.instance, isOwnInstance: false, timeout: limit.timeout
-				};
-		}
 		this._log = null;
-		if (webClient && "invoke" in webClient) {
-			this._webClient = webClient;
-		} else if (RestClient._webClientFactory) {
-			this._webClient = RestClient._webClientFactory(webClient);
-		} else {
-			this._webClient = new WebClient(webClient);
-		}
-		if (userAgent !== undefined) {
-			this._userAgent = userAgent;
+		if (opts !== undefined) {
+			const { limit, webClient, userAgent } = opts;
+			if (limit) {
+				this._limitHandle = Limit.isLimitOpts(limit.instance) ?
+					{
+						instance: limitFactory(limit.instance), isOwnInstance: true, timeout: limit.timeout
+					} : {
+						instance: limit.instance, isOwnInstance: false, timeout: limit.timeout
+					};
+			}
+			if (webClient && "invoke" in webClient) {
+				this._webClient = webClient;
+			} else if (RestClient._webClientFactory) {
+				this._webClient = RestClient._webClientFactory(webClient);
+			} else {
+				this._webClient = new WebClient(webClient);
+			}
+			if (userAgent !== undefined) {
+				this._userAgent = userAgent;
+			}
 		}
 	}
 
@@ -81,19 +86,18 @@ export class RestClient extends Disposable {
 		opts?: {
 			queryArgs?: { [key: string]: string },
 			headers?: http.OutgoingHttpHeaders,
-			cancellationToken?: CancellationTokenLike
+			cancellationToken?: CancellationTokenLike,
+			limitWeight?: number
 		}
-	): Promise<any> {
+	): Promise<RestClient.Response> {
 		super.verifyNotDisposed();
 
-		const { queryArgs, headers, cancellationToken } = (
-			() => opts || { queryArgs: undefined, headers: undefined, cancellationToken: undefined }
-		)();
+		const { queryArgs = undefined, headers = undefined, cancellationToken = undefined, limitWeight = undefined } = (() => opts || {})();
 		const path = queryArgs !== undefined ?
 			webMethodName + "?" + querystring.stringify(queryArgs) :
 			webMethodName;
 
-		return this.invoke(path, "GET", { headers, cancellationToken });
+		return this.invoke(path, "GET", { headers, cancellationToken, limitWeight });
 	}
 
 	protected invokeWebMethodPost(
@@ -101,14 +105,13 @@ export class RestClient extends Disposable {
 		opts?: {
 			postArgs?: { [key: string]: string },
 			headers?: http.OutgoingHttpHeaders,
-			cancellationToken?: CancellationTokenLike
+			cancellationToken?: CancellationTokenLike,
+			limitWeight?: number
 		}
-	): Promise<any> {
+	): Promise<RestClient.Response> {
 		super.verifyNotDisposed();
 
-		const { postArgs, headers, cancellationToken } = (
-			() => opts || { postArgs: undefined, headers: undefined, cancellationToken: undefined }
-		)();
+		const { postArgs = undefined, headers = undefined, cancellationToken = undefined, limitWeight = undefined } = (() => opts || {})();
 
 		const bodyStr = postArgs && querystring.stringify(postArgs);
 		const { body, bodyLength } = (() => {
@@ -128,7 +131,7 @@ export class RestClient extends Disposable {
 			return headers !== undefined ? { ...baseHeaders, ...headers } : baseHeaders;
 		})();
 
-		return this.invoke(webMethodName, "POST", { bodyBufferOrObject: body, headers: friendlyHeaders, cancellationToken });
+		return this.invoke(webMethodName, "POST", { bodyBufferOrObject: body, headers: friendlyHeaders, cancellationToken, limitWeight });
 	}
 
 	protected async invoke(
@@ -136,14 +139,14 @@ export class RestClient extends Disposable {
 		method: "GET" | "POST" | string,
 		opts?: {
 			headers?: http.OutgoingHttpHeaders,
-			bodyBufferOrObject?: Buffer,
-			cancellationToken?: CancellationTokenLike
-		}): Promise<any> {
+			bodyBufferOrObject?: Buffer | any,
+			cancellationToken?: CancellationTokenLike,
+			limitWeight?: number
+		}): Promise<RestClient.Response> {
 		super.verifyNotDisposed();
 
-		const { bodyBufferOrObject, headers, cancellationToken } = (
-			() => opts || { bodyBufferOrObject: undefined, headers: undefined, cancellationToken: undefined }
-		)();
+		// tslint:disable-next-line:max-line-length
+		const { bodyBufferOrObject = undefined, headers = undefined, cancellationToken = undefined, limitWeight = 1 } = (() => opts || {})();
 
 		const friendlyHeaders = headers !== undefined ?
 			(
@@ -171,18 +174,28 @@ export class RestClient extends Disposable {
 		let limitToken: LimitToken | null = null;
 		if (this._limitHandle !== undefined) {
 			if (cancellationToken !== undefined) {
-				limitToken = await this._limitHandle.instance.accrueTokenLazy(this._limitHandle.timeout || 500, cancellationToken);
+				limitToken = await this._limitHandle.instance.accrueTokenLazy(limitWeight, this._limitHandle.timeout || 500, cancellationToken);
 			} else {
-				limitToken = await this._limitHandle.instance.accrueTokenLazy(this._limitHandle.timeout || 500);
+				limitToken = await this._limitHandle.instance.accrueTokenLazy(limitWeight, this._limitHandle.timeout || 500);
 			}
 		}
 		try {
 			const url: URL = new URL(path, this._baseUrl);
 
-			const result: WebClientInvokeResult =
+			const invokeResult: WebClientInvokeResult =
 				await this._webClient.invoke({ url, method, body: friendlyBody, headers: friendlyHeaders }, cancellationToken);
 
-			return result.body ? JSON.parse(result.body.toString()) : null;
+			const { statusCode, statusMessage, headers: responseHeaders, body } = invokeResult;
+
+			const response: RestClient.Response = {
+				get statusCode() { return statusCode; },
+				get statusMessage() { return statusMessage; },
+				get headers() { return responseHeaders; },
+				get body() { return body; },
+				get bodyAsJson() { return JSON.parse(invokeResult.body.toString()); }
+			};
+
+			return response;
 		} finally {
 			if (limitToken !== null) {
 				limitToken.commit();
@@ -200,3 +213,4 @@ export class RestClient extends Disposable {
 }
 
 export default RestClient;
+
