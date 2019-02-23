@@ -195,11 +195,21 @@ export class RestClient extends Disposable {
 				get bodyAsJson() { return JSON.parse(invokeResult.body.toString()); }
 			};
 
-			return response;
-		} finally {
 			if (limitToken !== null) {
 				limitToken.commit();
 			}
+
+			return response;
+		} catch (e) {
+			if (limitToken !== null) {
+				if (e instanceof WebClient.CommunicationError) {
+					// Token was not spent due server side did not work any job
+					limitToken.rollback();
+				} else {
+					limitToken.commit();
+				}
+			}
+			throw e;
 		}
 	}
 
