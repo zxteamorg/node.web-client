@@ -148,7 +148,7 @@ export class RestClient extends Disposable {
 		// tslint:disable-next-line:max-line-length
 		const { bodyBufferOrObject = undefined, headers = undefined, cancellationToken = undefined, limitWeight = 1 } = (() => opts || {})();
 
-		const friendlyHeaders = headers !== undefined ?
+		let friendlyHeaders = headers !== undefined ?
 			(
 				// set User-Agent only if this is not present by user
 				(this._userAgent !== undefined && !("User-Agent" in headers)) ?
@@ -178,6 +178,9 @@ export class RestClient extends Disposable {
 			} else {
 				limitToken = await this._limitHandle.instance.accrueTokenLazy(limitWeight, this._limitHandle.timeout || 500);
 			}
+		} else {
+			if (friendlyHeaders === undefined) { friendlyHeaders = {}; }
+			friendlyHeaders["X-LimitJS-Weight"] = limitWeight;
 		}
 		try {
 			const url: URL = new URL(path, this._baseUrl);
