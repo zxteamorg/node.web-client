@@ -1,8 +1,8 @@
 import * as http from "http";
 import { URL } from "url";
 import { assert } from "chai";
-import { CancellationTokenLike } from "@zxteam/contract";
-import Task, { CancelledError } from "ptask.js";
+import { CancellationToken } from "@zxteam/contract";
+import { CancelledError, Task } from "ptask.js";
 
 import { RestClient } from "../src/index";
 
@@ -11,7 +11,7 @@ describe("RestClient tests", function () {
 		class MyApiClient extends RestClient {
 			public invoke(path: string, method: "GET" | "POST" | string, opts?: {
 				headers?: http.OutgoingHttpHeaders,
-				cancellationToken?: CancellationTokenLike
+				cancellationToken?: CancellationToken
 			}) {
 				return super.invoke(path, method, opts);
 			}

@@ -2,7 +2,7 @@ import * as http from "http";
 import * as querystring from "querystring";
 import { URL } from "url";
 import { Limit, LimitToken, limitFactory } from "limit.js";
-import { LoggerLike, CancellationTokenLike } from "@zxteam/contract";
+import { Logger, CancellationToken } from "@zxteam/contract";
 import { Disposable } from "@zxteam/disposable";
 import { loggerFactory } from "@zxteam/logger";
 
@@ -30,7 +30,7 @@ export class RestClient extends Disposable {
 	private readonly _webClient: WebClientLike;
 	private readonly _userAgent?: string;
 	private readonly _limitHandle?: { instance: Limit, timeout: number, isOwnInstance: boolean };
-	private _log: LoggerLike | null;
+	private _log: Logger | null;
 
 	public constructor(url: URL | string, opts?: RestClient.Opts) {
 		super();
@@ -72,7 +72,7 @@ export class RestClient extends Disposable {
 		}
 		return this._log;
 	}
-	public set log(value: LoggerLike) {
+	public set log(value: Logger) {
 		if (this._webClient instanceof WebClient) {
 			this._webClient.log = value;
 		}
@@ -86,7 +86,7 @@ export class RestClient extends Disposable {
 		opts?: {
 			queryArgs?: { [key: string]: string },
 			headers?: http.OutgoingHttpHeaders,
-			cancellationToken?: CancellationTokenLike,
+			cancellationToken?: CancellationToken,
 			limitWeight?: number
 		}
 	): Promise<RestClient.Response> {
@@ -105,7 +105,7 @@ export class RestClient extends Disposable {
 		opts?: {
 			postArgs?: { [key: string]: string },
 			headers?: http.OutgoingHttpHeaders,
-			cancellationToken?: CancellationTokenLike,
+			cancellationToken?: CancellationToken,
 			limitWeight?: number
 		}
 	): Promise<RestClient.Response> {
@@ -140,7 +140,7 @@ export class RestClient extends Disposable {
 		opts?: {
 			headers?: http.OutgoingHttpHeaders,
 			bodyBufferOrObject?: Buffer | any,
-			cancellationToken?: CancellationTokenLike,
+			cancellationToken?: CancellationToken,
 			limitWeight?: number
 		}): Promise<RestClient.Response> {
 		super.verifyNotDisposed();

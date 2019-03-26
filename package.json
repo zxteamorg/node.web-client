@@ -1,6 +1,6 @@
 {
 	"name": "@zxteam/restclient",
-	"version": "2.4.2",
+	"version": "3.0.2",
 	"description": "ZXTeam's REST API Client. CancellationToken and Limits are supported.",
 	"author": {
 		"name": "Maxim Anurin",
@@ -10,22 +10,24 @@
 	"contributors": [
 		{
 			"name": "Serg Zgama",
-			"email": "serg.zgama@zxteam.org"
+			"email": "serhii.zghama@zxteam.org"
 		}
 	],
 	"license": "MIT",
 	"devDependencies": {
-		"@types/node": "^10.12.24",
-		"@zxnode/build": "0.0.30",
-		"ptask.js": "^2.0.0",
-		"source-map-support": "^0.5.10"
+		"@types/node": "^11.11.7",
+		"@zxnode/build": "0.0.32"
 	},
 	"dependencies": {
-		"@zxteam/contract": "^2.0.0",
-		"@zxteam/disposable": "^2.0.0",
-		"@zxteam/logger": "^2.0.0",
-		"@zxteam/webclient": "^2.1.0",
-		"limit.js": "^2.2.0"
+		"@zxteam/contract": "^3.0.2",
+		"@zxteam/disposable": "^3.0.2",
+		"@zxteam/logger": "^3.0.2",
+		"@zxteam/webclient": "^3.0.2",
+		"limit.js": "^3.0.2",
+		"ptask.js": "^3.0.2"
+	},
+	"engines": {
+		"node": ">=11"
 	},
 	"keywords": [],
 	"repository": {

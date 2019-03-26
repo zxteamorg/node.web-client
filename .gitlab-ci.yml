@@ -1,1 +1,1 @@
-include: 'https://dev.zxteam.net/maxim.anurin/gitlab-pipelines/raw/master/node/internal-lib.yml'
+include: 'https://dev.zxteam.net/maxim.anurin/gitlab-pipelines/raw/master/node/public-lib.yml'
