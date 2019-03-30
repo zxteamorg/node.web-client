@@ -2,18 +2,17 @@ import * as http from "http";
 import { URL } from "url";
 import { assert } from "chai";
 import { CancellationToken } from "@zxteam/contract";
-import { CancelledError, Task } from "ptask.js";
+import { CancelledError, DUMMY_CANCELLATION_TOKEN, Task } from "ptask.js";
 
 import { RestClient } from "../src/index";
 
 describe("RestClient tests", function () {
 	describe("Tests with limits", function () {
 		class MyApiClient extends RestClient {
-			public invoke(path: string, method: "GET" | "POST" | string, opts?: {
-				headers?: http.OutgoingHttpHeaders,
-				cancellationToken?: CancellationToken
+			public invoke(cancellationToken: CancellationToken, path: string, method: "GET" | "POST" | string, opts?: {
+				headers?: http.OutgoingHttpHeaders
 			}) {
-				return super.invoke(path, method, opts);
+				return super.invoke(cancellationToken, path, method, opts);
 			}
 		}
 
@@ -33,7 +32,7 @@ describe("RestClient tests", function () {
 			try {
 				for (let index = 0; index < 10; index++) {
 					jobs.push(
-						apiClient.invoke("a", "GET")
+						apiClient.invoke(DUMMY_CANCELLATION_TOKEN, "a", "GET")
 							.then(() => { ++completeCount; })
 							.catch((reason: any) => { errors.push(reason); })
 					);
@@ -64,7 +63,7 @@ describe("RestClient tests", function () {
 			try {
 				for (let index = 0; index < 10; index++) {
 					jobs.push(
-						apiClient.invoke("a", "GET", { cancellationToken: cts.token })
+						apiClient.invoke(cts.token, "a", "GET")
 							.then(() => { ++completeCount; })
 							.catch((reason: any) => { errors.push(reason); })
 					);

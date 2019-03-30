@@ -82,36 +82,36 @@ export class RestClient extends Disposable {
 	protected get baseUrl(): URL { return this._baseUrl; }
 
 	protected invokeWebMethodGet(
+		cancellationToken: CancellationToken,
 		webMethodName: string,
 		opts?: {
 			queryArgs?: { [key: string]: string },
 			headers?: http.OutgoingHttpHeaders,
-			cancellationToken?: CancellationToken,
 			limitWeight?: number
 		}
 	): Promise<RestClient.Response> {
 		super.verifyNotDisposed();
 
-		const { queryArgs = undefined, headers = undefined, cancellationToken = undefined, limitWeight = undefined } = (() => opts || {})();
+		const { queryArgs = undefined, headers = undefined, limitWeight = undefined } = (() => opts || {})();
 		const path = queryArgs !== undefined ?
 			webMethodName + "?" + querystring.stringify(queryArgs) :
 			webMethodName;
 
-		return this.invoke(path, "GET", { headers, cancellationToken, limitWeight });
+		return this.invoke(cancellationToken, path, "GET", { headers, limitWeight });
 	}
 
 	protected invokeWebMethodPost(
+		cancellationToken: CancellationToken,
 		webMethodName: string,
 		opts?: {
 			postArgs?: { [key: string]: string },
 			headers?: http.OutgoingHttpHeaders,
-			cancellationToken?: CancellationToken,
 			limitWeight?: number
 		}
 	): Promise<RestClient.Response> {
 		super.verifyNotDisposed();
 
-		const { postArgs = undefined, headers = undefined, cancellationToken = undefined, limitWeight = undefined } = (() => opts || {})();
+		const { postArgs = undefined, headers = undefined, limitWeight = undefined } = (() => opts || {})();
 
 		const bodyStr = postArgs && querystring.stringify(postArgs);
 		const { body, bodyLength } = (() => {
@@ -131,22 +131,22 @@ export class RestClient extends Disposable {
 			return headers !== undefined ? { ...baseHeaders, ...headers } : baseHeaders;
 		})();
 
-		return this.invoke(webMethodName, "POST", { bodyBufferOrObject: body, headers: friendlyHeaders, cancellationToken, limitWeight });
+		return this.invoke(cancellationToken, webMethodName, "POST", { bodyBufferOrObject: body, headers: friendlyHeaders, limitWeight });
 	}
 
 	protected async invoke(
+		cancellationToken: CancellationToken,
 		path: string,
 		method: "GET" | "POST" | string,
 		opts?: {
 			headers?: http.OutgoingHttpHeaders,
 			bodyBufferOrObject?: Buffer | any,
-			cancellationToken?: CancellationToken,
 			limitWeight?: number
 		}): Promise<RestClient.Response> {
 		super.verifyNotDisposed();
 
 		// tslint:disable-next-line:max-line-length
-		const { bodyBufferOrObject = undefined, headers = undefined, cancellationToken = undefined, limitWeight = 1 } = (() => opts || {})();
+		const { bodyBufferOrObject = undefined, headers = undefined, limitWeight = 1 } = (() => opts || {})();
 
 		let friendlyHeaders = headers !== undefined ?
 			(
@@ -186,7 +186,7 @@ export class RestClient extends Disposable {
 			const url: URL = new URL(path, this._baseUrl);
 
 			const invokeResult: WebClientInvokeResult =
-				await this._webClient.invoke({ url, method, body: friendlyBody, headers: friendlyHeaders }, cancellationToken);
+				await this._webClient.invoke(cancellationToken, { url, method, body: friendlyBody, headers: friendlyHeaders });
 
 			const { statusCode, statusMessage, headers: responseHeaders, body } = invokeResult;
 
