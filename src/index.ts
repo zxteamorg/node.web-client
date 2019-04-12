@@ -18,6 +18,7 @@ export namespace RestClient {
 		readonly limit?: LimitOpts;
 		readonly webClient?: WebClient.Opts | WebClientLike;
 		readonly userAgent?: string;
+		readonly log?: Logger;
 	}
 
 	export interface Response extends WebClientInvokeResult {
@@ -35,7 +36,13 @@ export class RestClient extends Disposable {
 	public constructor(url: URL | string, opts?: RestClient.Opts) {
 		super();
 		this._baseUrl = typeof url === "string" ? new URL(url) : url;
-		this._log = null;
+
+		if (opts !== undefined && opts.log !== undefined) {
+			this._log = opts.log;
+		} else {
+			this._log = loggerFactory.getLogger(this.constructor.name);
+		}
+
 		if (opts !== undefined) {
 			const { limit, webClient, userAgent } = opts;
 			if (limit) {
@@ -62,22 +69,7 @@ export class RestClient extends Disposable {
 	public static setWebClientFactory(value: () => WebClientLike) { RestClient._webClientFactory = value; }
 	public static removeWebClientFactory() { delete RestClient._webClientFactory; }
 
-	public get log() {
-		if (this._log !== null) {
-			return this._log;
-		}
-		this._log = loggerFactory.getLogger(this.constructor.name);
-		if (this._webClient instanceof WebClient) {
-			this._webClient.log = this._log;
-		}
-		return this._log;
-	}
-	public set log(value: Logger) {
-		if (this._webClient instanceof WebClient) {
-			this._webClient.log = value;
-		}
-		this._log = value;
-	}
+	protected get log() { return this._log; }
 
 	protected get baseUrl(): URL { return this._baseUrl; }
 
