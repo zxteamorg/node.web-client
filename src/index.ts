@@ -1,10 +1,11 @@
+import * as zxteam from "@zxteam/contract";
+import { Disposable } from "@zxteam/disposable";
+import { Limit, LimitToken, limitFactory } from "@zxteam/limit";
+import { loggerManager } from "@zxteam/logger";
+
 import * as http from "http";
 import * as querystring from "querystring";
 import { URL } from "url";
-import { Limit, LimitToken, limitFactory } from "limit.js";
-import { Logger, CancellationToken } from "@zxteam/contract";
-import { Disposable } from "@zxteam/disposable";
-import { loggerFactory } from "@zxteam/logger";
 
 import { WebClient, WebClientLike, WebClientInvokeResult } from "@zxteam/webclient";
 
@@ -18,7 +19,7 @@ export namespace RestClient {
 		readonly limit?: LimitOpts;
 		readonly webClient?: WebClient.Opts | WebClientLike;
 		readonly userAgent?: string;
-		readonly log?: Logger;
+		readonly log?: zxteam.Logger;
 	}
 
 	export interface Response extends WebClientInvokeResult {
@@ -31,7 +32,7 @@ export class RestClient extends Disposable {
 	private readonly _webClient: WebClientLike;
 	private readonly _userAgent?: string;
 	private readonly _limitHandle?: { instance: Limit, timeout: number, isOwnInstance: boolean };
-	private _log: Logger | null;
+	private _log: zxteam.Logger | null;
 
 	public constructor(url: URL | string, opts?: RestClient.Opts) {
 		super();
@@ -40,7 +41,7 @@ export class RestClient extends Disposable {
 		if (opts !== undefined && opts.log !== undefined) {
 			this._log = opts.log;
 		} else {
-			this._log = loggerFactory.getLogger(this.constructor.name);
+			this._log = loggerManager.getLogger(this.constructor.name);
 		}
 
 		if (opts !== undefined) {
@@ -74,7 +75,7 @@ export class RestClient extends Disposable {
 	protected get baseUrl(): URL { return this._baseUrl; }
 
 	protected invokeWebMethodGet(
-		cancellationToken: CancellationToken,
+		cancellationToken: zxteam.CancellationToken,
 		webMethodName: string,
 		opts?: {
 			queryArgs?: { [key: string]: string },
@@ -93,7 +94,7 @@ export class RestClient extends Disposable {
 	}
 
 	protected invokeWebMethodPost(
-		cancellationToken: CancellationToken,
+		cancellationToken: zxteam.CancellationToken,
 		webMethodName: string,
 		opts?: {
 			postArgs?: { [key: string]: string },
@@ -127,7 +128,7 @@ export class RestClient extends Disposable {
 	}
 
 	protected async invoke(
-		cancellationToken: CancellationToken,
+		cancellationToken: zxteam.CancellationToken,
 		path: string,
 		method: "GET" | "POST" | string,
 		opts?: {
@@ -178,7 +179,7 @@ export class RestClient extends Disposable {
 			const url: URL = new URL(path, this._baseUrl);
 
 			const invokeResult: WebClientInvokeResult =
-				await this._webClient.invoke(cancellationToken, { url, method, body: friendlyBody, headers: friendlyHeaders });
+				await this._webClient.invoke(cancellationToken, { url, method, body: friendlyBody, headers: friendlyHeaders }).promise;
 
 			const { statusCode, statusMessage, headers: responseHeaders, body } = invokeResult;
 

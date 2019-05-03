@@ -2,7 +2,7 @@ import * as http from "http";
 import { URL } from "url";
 import { assert } from "chai";
 import { CancellationToken } from "@zxteam/contract";
-import { CancelledError, DUMMY_CANCELLATION_TOKEN, Task } from "ptask.js";
+import { CancelledError, DUMMY_CANCELLATION_TOKEN, Task } from "@zxteam/task";
 
 import { RestClient } from "../src/index";
 
