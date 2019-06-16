@@ -1,5 +1,5 @@
 import * as zxteam from "@zxteam/contract";
-import { Disposable } from "@zxteam/disposable";
+import { Disposable, safeDispose } from "@zxteam/disposable";
 import { Limit, LimitToken, limitFactory } from "@zxteam/limit";
 import { loggerManager } from "@zxteam/logger";
 
@@ -7,7 +7,7 @@ import * as http from "http";
 import * as querystring from "querystring";
 import { URL } from "url";
 
-import { WebClient, WebClientLike, WebClientInvokeResult } from "@zxteam/webclient";
+import { WebClient, WebClientInvokeChannel, WebClientInvokeResult } from "@zxteam/webclient";
 
 export namespace RestClient {
 	export interface LimitOpts {
@@ -17,7 +17,7 @@ export namespace RestClient {
 
 	export interface Opts {
 		readonly limit?: LimitOpts;
-		readonly webClient?: WebClient.Opts | WebClientLike;
+		readonly webClient?: WebClient.Opts | WebClientInvokeChannel;
 		readonly userAgent?: string;
 		readonly log?: zxteam.Logger;
 	}
@@ -27,9 +27,10 @@ export namespace RestClient {
 	}
 }
 export class RestClient extends Disposable {
-	private static _webClientFactory?: (opts?: WebClient.Opts) => WebClientLike;
+	private static _webClientFactory?: (opts?: WebClient.Opts) => WebClientInvokeChannel;
 	private readonly _baseUrl: URL;
-	private readonly _webClient: WebClientLike;
+	private readonly _webClient: WebClientInvokeChannel;
+	private readonly _webClientRequiredDispose: boolean;
 	private readonly _userAgent?: string;
 	private readonly _limitHandle?: { instance: Limit, timeout: number, isOwnInstance: boolean };
 	private _log: zxteam.Logger | null;
@@ -56,10 +57,13 @@ export class RestClient extends Disposable {
 			}
 			if (webClient && "invoke" in webClient) {
 				this._webClient = webClient;
+				this._webClientRequiredDispose = false;
 			} else if (RestClient._webClientFactory) {
 				this._webClient = RestClient._webClientFactory(webClient);
+				this._webClientRequiredDispose = true;
 			} else {
 				this._webClient = new WebClient(webClient);
+				this._webClientRequiredDispose = false;
 			}
 			if (userAgent !== undefined) {
 				this._userAgent = userAgent;
@@ -67,7 +71,7 @@ export class RestClient extends Disposable {
 		}
 	}
 
-	public static setWebClientFactory(value: () => WebClientLike) { RestClient._webClientFactory = value; }
+	public static setWebClientFactory(value: () => WebClientInvokeChannel) { RestClient._webClientFactory = value; }
 	public static removeWebClientFactory() { delete RestClient._webClientFactory; }
 
 	protected get log() { return this._log; }
@@ -167,9 +171,9 @@ export class RestClient extends Disposable {
 		let limitToken: LimitToken | null = null;
 		if (this._limitHandle !== undefined) {
 			if (cancellationToken !== undefined) {
-				limitToken = await this._limitHandle.instance.accrueTokenLazy(limitWeight, this._limitHandle.timeout || 500, cancellationToken);
+				limitToken = await this._limitHandle.instance.accrueTokenLazy(limitWeight, this._limitHandle.timeout, cancellationToken);
 			} else {
-				limitToken = await this._limitHandle.instance.accrueTokenLazy(limitWeight, this._limitHandle.timeout || 500);
+				limitToken = await this._limitHandle.instance.accrueTokenLazy(limitWeight, this._limitHandle.timeout);
 			}
 		} else {
 			if (friendlyHeaders === undefined) { friendlyHeaders = {}; }
@@ -212,8 +216,15 @@ export class RestClient extends Disposable {
 	protected async onDispose(): Promise<void> {
 		if (this._limitHandle !== undefined) {
 			if (this._limitHandle.isOwnInstance) {
-				await this._limitHandle.instance.dispose();
+				await this._limitHandle.instance.dispose().promise;
 			}
+		}
+		if (this._webClientRequiredDispose) {
+			// generally WebClientInvokeChannel is NOT disposable
+			// but we do not know what implementation provider by client's web client factory
+			// probably client's web client required to dispose()
+			// so we trying to dispose safelly
+			await safeDispose(this._webClient).promise;
 		}
 	}
 }
