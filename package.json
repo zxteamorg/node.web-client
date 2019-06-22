@@ -1,6 +1,6 @@
 {
 	"name": "@zxteam/restclient",
-	"version": "5.0.1",
+	"version": "5.0.2",
 	"description": "ZXTeam's REST API Client. CancellationToken and Limit are supported.",
 	"author": {
 		"name": "ZXTeam",
@@ -20,7 +20,7 @@
 	],
 	"license": "MIT",
 	"devDependencies": {
-		"@types/node": "^11.13.9",
+		"@types/node": "^11.13.15",
 		"@zxnode/build": "^0.0.34"
 	},
 	"dependencies": {
@@ -28,7 +28,7 @@
 		"@zxteam/disposable": "^5.0.2",
 		"@zxteam/logger": "^5.0.1",
 		"@zxteam/task": "^5.0.1",
-		"@zxteam/webclient": "^5.0.1",
+		"@zxteam/webclient": "^5.0.2",
 		"@zxteam/limit": "^5.0.1"
 	},
 	"engines": {
