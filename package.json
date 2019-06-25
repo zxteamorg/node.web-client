@@ -37,12 +37,12 @@
 	"keywords": [],
 	"repository": {
 		"type": "git",
-		"url": "ssh://git@dev.zxteam.net:22282/pub/node/webclient.git"
+		"url": "ssh://git@dev.zxteam.net:22282/pub/node/restclient.git"
 	},
 	"bugs": {
-		"url": "https://dev.zxteam.net/pub/node/webclient/issues"
+		"url": "https://dev.zxteam.net/pub/node/restclient/issues"
 	},
-	"homepage": "https://dev.zxteam.net/pub/node/webclient",
+	"homepage": "https://dev.zxteam.net/pub/node/restclient",
 	"scripts": {
 		"build": "zxbuild clean dist",
 		"test": "nyc --exclude submodules --exclude test --reporter=lcov --reporter=text --reporter=text-summary mocha --recursive --timeout 10000 \"test/**/*.test.js\"",
