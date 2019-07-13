@@ -1,6 +1,6 @@
 {
 	"name": "@zxteam/restclient",
-	"version": "5.0.2",
+	"version": "6.0.1",
 	"description": "ZXTeam's REST API Client. CancellationToken and Limit are supported.",
 	"author": {
 		"name": "ZXTeam",
@@ -20,16 +20,16 @@
 	],
 	"license": "MIT",
 	"devDependencies": {
-		"@types/node": "^11.13.15",
+		"@types/node": "^11.13.17",
 		"@zxnode/build": "^0.0.34"
 	},
 	"dependencies": {
-		"@zxteam/contract": "^5.0.1",
-		"@zxteam/disposable": "^5.0.2",
-		"@zxteam/logger": "^5.0.1",
-		"@zxteam/task": "^5.0.1",
-		"@zxteam/webclient": "^5.0.2",
-		"@zxteam/limit": "^5.0.1"
+		"@zxteam/contract": "^6.0.1",
+		"@zxteam/disposable": "^6.0.1",
+		"@zxteam/logger": "^6.0.1",
+		"@zxteam/task": "^6.0.1",
+		"@zxteam/webclient": "^6.0.1",
+		"@zxteam/limit": "^6.0.1"
 	},
 	"engines": {
 		"node": ">=11"
@@ -45,8 +45,8 @@
 	"homepage": "https://dev.zxteam.net/pub/node/restclient",
 	"scripts": {
 		"build": "zxbuild clean dist",
-		"test": "nyc --exclude submodules --exclude test --reporter=lcov --reporter=text --reporter=text-summary mocha --recursive --timeout 10000 \"test/**/*.test.js\"",
-		"test:only": "mocha --require source-map-support/register --recursive --timeout 10000 \"test/**/*.test.js\""
+		"test": "nyc --exclude submodules --exclude test --extension=\".ts\" --reporter=lcov --reporter=text --reporter=text-summary mocha \"test/**/*.test.js\" --recursive --timeout 10000",
+		"test:only": "mocha --require source-map-support/register \"test/**/*.test.js\" --recursive --timeout 10000"
 	},
 	"private": true
 }

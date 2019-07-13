@@ -199,7 +199,7 @@ export class RestClient extends Disposable {
 			const url: URL = new URL(path, this._baseUrl);
 
 			const invokeResult: WebClientInvokeResult =
-				await this._webClient.invoke(cancellationToken, { url, method, body: friendlyBody, headers: friendlyHeaders }).promise;
+				await this._webClient.invoke(cancellationToken, { url, method, body: friendlyBody, headers: friendlyHeaders });
 
 			const { statusCode, statusMessage, headers: responseHeaders, body } = invokeResult;
 
@@ -232,7 +232,7 @@ export class RestClient extends Disposable {
 	protected async onDispose(): Promise<void> {
 		if (this._limitHandle !== undefined) {
 			if (this._limitHandle.isOwnInstance) {
-				await this._limitHandle.instance.dispose().promise;
+				await this._limitHandle.instance.dispose();
 			}
 		}
 		if (this._webClientRequiredDispose) {
@@ -240,7 +240,7 @@ export class RestClient extends Disposable {
 			// but we do not know what implementation provider by client's web client factory
 			// probably client's web client required to dispose()
 			// so we trying to dispose safelly
-			await safeDispose(this._webClient).promise;
+			await safeDispose(this._webClient);
 		}
 	}
 }
