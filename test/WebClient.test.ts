@@ -4,11 +4,11 @@ import { assert } from "chai";
 import { CancellationToken } from "@zxteam/contract";
 import { CancelledError, DUMMY_CANCELLATION_TOKEN, Task } from "@zxteam/task";
 
-import { RestClient } from "../src/index";
+import { WebClient } from "../src/index";
 
-describe("RestClient tests", function () {
+describe("WebClient tests", function () {
 	describe("Tests with limits", function () {
-		class MyApiClient extends RestClient {
+		class MyApiClient extends WebClient {
 			public invoke(cancellationToken: CancellationToken, path: string, method: "GET" | "POST" | string, opts?: {
 				headers?: http.OutgoingHttpHeaders
 			}) {
@@ -22,7 +22,7 @@ describe("RestClient tests", function () {
 					instance: { perSecond: 2, perMinute: 4, perHour: 50, parallel: 2 },
 					timeout: 3000 // timeout for accure token
 				},
-				webClient: {
+				httpClient: {
 					timeout: 1000 // timeout for web request
 				}
 			});
@@ -52,7 +52,7 @@ describe("RestClient tests", function () {
 					instance: { perSecond: 2, perMinute: 4, perHour: 50, parallel: 2 },
 					timeout: 3000 // timeout for accure token
 				},
-				webClient: {
+				httpClient: {
 					timeout: 1000 // timeout for web request
 				}
 			});

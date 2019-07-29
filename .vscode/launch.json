@@ -8,7 +8,9 @@
 			"preLaunchTask": "compile:test:ts",
 			"runtimeExecutable": null,
 			"runtimeArgs": [
-				"--nolazy"
+				"--nolazy",
+				"--require",
+				"source-map-support/register"
 			],
 			"stopOnEntry": false,
 			"program": "${workspaceRoot}/node_modules/mocha/bin/_mocha",

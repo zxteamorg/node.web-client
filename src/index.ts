@@ -1,68 +1,66 @@
-const { name, version } = require(require("path").join(__dirname, "..", "package.json"));
+const { name: packageName, version: packageVersion } = require(require("path").join(__dirname, "..", "package.json"));
 const G: any = global || window || {};
-const PACKAGE_GUARD: symbol = Symbol.for(name);
+const PACKAGE_GUARD: symbol = Symbol.for(packageName);
 if (PACKAGE_GUARD in G) {
 	const conflictVersion = G[PACKAGE_GUARD];
 	// tslint:disable-next-line: max-line-length
-	const msg = `Conflict module version. Look like two different version of package ${name} was loaded inside the process: ${conflictVersion} and ${version}.`;
+	const msg = `Conflict module version. Look like two different version of package ${packageName} was loaded inside the process: ${conflictVersion} and ${packageVersion}.`;
 	if (process !== undefined && process.env !== undefined && process.env.NODE_ALLOW_CONFLICT_MODULES === "1") {
 		console.warn(msg + " This treats as warning because NODE_ALLOW_CONFLICT_MODULES is set.");
 	} else {
 		throw new Error(msg + " Use NODE_ALLOW_CONFLICT_MODULES=\"1\" to treats this error as warning.");
 	}
 } else {
-	G[PACKAGE_GUARD] = version;
+	G[PACKAGE_GUARD] = packageVersion;
 }
 
 import * as zxteam from "@zxteam/contract";
 import { Disposable, safeDispose } from "@zxteam/disposable";
 import { Limit, LimitToken, limitFactory } from "@zxteam/limit";
-import { loggerManager } from "@zxteam/logger";
 
 import * as http from "http";
 import * as querystring from "querystring";
 import { URL } from "url";
 
-import { WebClient, WebClientInvokeChannel, WebClientInvokeResult } from "@zxteam/webclient";
+import { HttpClient } from "@zxteam/http-client";
 
-export namespace RestClient {
+export namespace WebClient {
 	export interface LimitOpts {
 		instance: Limit.Opts | Limit;
 		timeout: number;
 	}
 
 	export interface Opts {
+		readonly httpClient?: HttpClient.Opts | HttpClient.InvokeChannel;
 		readonly limit?: LimitOpts;
-		readonly webClient?: WebClient.Opts | WebClientInvokeChannel;
-		readonly userAgent?: string;
 		readonly log?: zxteam.Logger;
+		readonly userAgent?: string;
 	}
 
-	export interface Response extends WebClientInvokeResult {
+	export interface Response extends HttpClient.Response {
 		readonly bodyAsJson: any;
 	}
 }
-export class RestClient extends Disposable {
-	private static _webClientFactory?: (opts?: WebClient.Opts) => WebClientInvokeChannel;
-	private readonly _baseUrl: URL;
-	private readonly _webClient: WebClientInvokeChannel;
-	private readonly _webClientRequiredDispose: boolean;
-	private readonly _userAgent?: string;
+export class WebClient extends Disposable {
+	protected readonly _baseUrl: URL;
+	protected readonly _log: zxteam.Logger;
+	protected readonly _userAgent?: string;
+	private readonly _httpClient: HttpClient.InvokeChannel;
+	private readonly _httpClientRequiredDispose: boolean;
 	private readonly _limitHandle?: { instance: Limit, timeout: number, isOwnInstance: boolean };
-	private _log: zxteam.Logger | null;
 
-	public constructor(url: URL | string, opts?: RestClient.Opts) {
+	public constructor(url: URL | string, opts?: WebClient.Opts) {
 		super();
 		this._baseUrl = typeof url === "string" ? new URL(url) : url;
 
 		if (opts !== undefined && opts.log !== undefined) {
 			this._log = opts.log;
 		} else {
-			this._log = loggerManager.getLogger(this.constructor.name);
+			this._log = DUMMY_LOGGER;
 		}
 
 		if (opts !== undefined) {
-			const { limit, webClient, userAgent } = opts;
+			const { limit, httpClient, userAgent } = opts;
 			if (limit) {
 				this._limitHandle = Limit.isLimitOpts(limit.instance) ?
 					{
@@ -71,30 +69,23 @@ export class RestClient extends Disposable {
 						instance: limit.instance, isOwnInstance: false, timeout: limit.timeout
 					};
 			}
-			if (webClient && "invoke" in webClient) {
-				this._webClient = webClient;
-				this._webClientRequiredDispose = false;
-			} else if (RestClient._webClientFactory) {
-				this._webClient = RestClient._webClientFactory(webClient);
-				this._webClientRequiredDispose = true;
+			if (httpClient && "invoke" in httpClient) {
+				this._httpClient = httpClient;
+				this._httpClientRequiredDispose = false;
 			} else {
-				this._webClient = new WebClient(webClient);
-				this._webClientRequiredDispose = false;
+				this._httpClient = new HttpClient(httpClient);
+				this._httpClientRequiredDispose = false;
 			}
 			if (userAgent !== undefined) {
 				this._userAgent = userAgent;
 			}
+		} else {
+			this._httpClient = new HttpClient();
+			this._httpClientRequiredDispose = false;
 		}
 	}
 
-	public static setWebClientFactory(value: () => WebClientInvokeChannel) { RestClient._webClientFactory = value; }
-	public static removeWebClientFactory() { delete RestClient._webClientFactory; }
-
-	protected get log() { return this._log; }
-
-	protected get baseUrl(): URL { return this._baseUrl; }
-
-	protected invokeWebMethodGet(
+	public get(
 		cancellationToken: zxteam.CancellationToken,
 		webMethodName: string,
 		opts?: {
@@ -102,7 +93,7 @@ export class RestClient extends Disposable {
 			headers?: http.OutgoingHttpHeaders,
 			limitWeight?: number
 		}
-	): Promise<RestClient.Response> {
+	): Promise<WebClient.Response> {
 		super.verifyNotDisposed();
 
 		const { queryArgs = undefined, headers = undefined, limitWeight = undefined } = (() => opts || {})();
@@ -113,7 +104,7 @@ export class RestClient extends Disposable {
 		return this.invoke(cancellationToken, path, "GET", { headers, limitWeight });
 	}
 
-	protected invokeWebMethodPost(
+	public postForm(
 		cancellationToken: zxteam.CancellationToken,
 		webMethodName: string,
 		opts?: {
@@ -121,7 +112,7 @@ export class RestClient extends Disposable {
 			headers?: http.OutgoingHttpHeaders,
 			limitWeight?: number
 		}
-	): Promise<RestClient.Response> {
+	): Promise<WebClient.Response> {
 		super.verifyNotDisposed();
 
 		const { postArgs = undefined, headers = undefined, limitWeight = undefined } = (() => opts || {})();
@@ -144,71 +135,81 @@ export class RestClient extends Disposable {
 			return headers !== undefined ? { ...baseHeaders, ...headers } : baseHeaders;
 		})();
 
-		return this.invoke(cancellationToken, webMethodName, "POST", { bodyBufferOrObject: body, headers: friendlyHeaders, limitWeight });
+		return this.invoke(cancellationToken, webMethodName, "POST", { body: body, headers: friendlyHeaders, limitWeight });
 	}
 
-	protected async invoke(
+	public async invoke(
 		cancellationToken: zxteam.CancellationToken,
 		path: string,
-		method: "GET" | "POST" | string,
+		method: HttpClient.HttpMethod | string,
 		opts?: {
 			headers?: http.OutgoingHttpHeaders,
-			bodyBufferOrObject?: Buffer | any,
+			body?: Buffer | any,
 			limitWeight?: number
-		}): Promise<RestClient.Response> {
+		}): Promise<WebClient.Response> {
 		super.verifyNotDisposed();
 
-		// tslint:disable-next-line:max-line-length
-		const { bodyBufferOrObject = undefined, headers = undefined, limitWeight = 1 } = (() => opts || {})();
-
-		let friendlyHeaders = headers !== undefined ?
-			(
-				// set User-Agent only if this is not present by user
-				(this._userAgent !== undefined && !("User-Agent" in headers)) ?
-					{ ...headers, "User-Agent": this._userAgent } :
-					headers
-			) :
-			(
-				this._userAgent !== undefined ?
-					{ "User-Agent": this._userAgent } :
-					undefined
-			);
-
-		const friendlyBody: Buffer | undefined =
-			bodyBufferOrObject !== undefined ?
-				(
-					// Serialize JSON if body is object
-					bodyBufferOrObject instanceof Buffer ?
-						bodyBufferOrObject :
-						Buffer.from(JSON.stringify(bodyBufferOrObject))
-				)
-				: undefined;
-
+		let friendlyBody: Buffer | undefined = undefined;
+		let friendlyHeaders: http.OutgoingHttpHeaders = {};
 		let limitToken: LimitToken | null = null;
-		if (this._limitHandle !== undefined) {
-			if (cancellationToken !== undefined) {
-				limitToken = await this._limitHandle.instance.accrueTokenLazy(limitWeight, this._limitHandle.timeout, cancellationToken);
-			} else {
-				limitToken = await this._limitHandle.instance.accrueTokenLazy(limitWeight, this._limitHandle.timeout);
+		let limitWeight: number | undefined = undefined;
+
+		if (opts !== undefined) {
+			const { headers, body } = opts;
+
+			if (headers !== undefined) {
+				friendlyHeaders = { ...headers };
 			}
-		} else {
-			if (friendlyHeaders === undefined) { friendlyHeaders = {}; }
-			friendlyHeaders["X-LimitJS-Weight"] = limitWeight;
+
+			if (this._userAgent !== undefined && !("User-Agent" in friendlyHeaders)) {
+				friendlyHeaders["User-Agent"] = this._userAgent;
+			}
+
+			if (body !== undefined) {
+				if (body instanceof Buffer) {
+					friendlyBody = body;
+				} else {
+					// Serialize JSON if body is object
+					friendlyBody = Buffer.from(JSON.stringify(body));
+					if (!("Content-Type" in friendlyHeaders)) {
+						friendlyHeaders["Content-Type"] = "application/json";
+						friendlyHeaders["Content-Length"] = friendlyBody.byteLength;
+					}
+				}
+			}
+
+			if (opts.limitWeight !== undefined) {
+				limitWeight = opts.limitWeight;
+			}
 		}
+
 		try {
+			if (this._limitHandle !== undefined) {
+				const weight = limitWeight !== undefined ? limitWeight : 1;
+				if (cancellationToken !== undefined) {
+					limitToken = await this._limitHandle.instance.accrueTokenLazy(weight, this._limitHandle.timeout, cancellationToken);
+				} else {
+					limitToken = await this._limitHandle.instance.accrueTokenLazy(weight, this._limitHandle.timeout);
+				}
+			} else {
+				if (limitWeight !== undefined) {
+					friendlyHeaders["X-Limit-Weight"] = limitWeight;
+				}
+			}
+
 			const url: URL = new URL(path, this._baseUrl);
 
-			const invokeResult: WebClientInvokeResult =
-				await this._webClient.invoke(cancellationToken, { url, method, body: friendlyBody, headers: friendlyHeaders });
+			const invokeResponse: HttpClient.Response =
+				await this._httpClient.invoke(cancellationToken, { url, method, body: friendlyBody, headers: friendlyHeaders });
 
-			const { statusCode, statusMessage, headers: responseHeaders, body } = invokeResult;
+			const { statusCode, statusMessage, headers: responseHeaders, body } = invokeResponse;
 
-			const response: RestClient.Response = {
+			const response: WebClient.Response = {
 				get statusCode() { return statusCode; },
 				get statusMessage() { return statusMessage; },
 				get headers() { return responseHeaders; },
 				get body() { return body; },
-				get bodyAsJson() { return JSON.parse(invokeResult.body.toString()); }
+				get bodyAsJson() { return JSON.parse(invokeResponse.body.toString()); }
 			};
 
 			if (limitToken !== null) {
@@ -218,7 +219,7 @@ export class RestClient extends Disposable {
 			return response;
 		} catch (e) {
 			if (limitToken !== null) {
-				if (e instanceof WebClient.CommunicationError) {
+				if (e instanceof HttpClient.CommunicationError) {
 					// Token was not spent due server side did not work any job
 					limitToken.rollback();
 				} else {
@@ -235,15 +236,30 @@ export class RestClient extends Disposable {
 				await this._limitHandle.instance.dispose();
 			}
 		}
-		if (this._webClientRequiredDispose) {
+		if (this._httpClientRequiredDispose) {
 			// generally WebClientInvokeChannel is NOT disposable
 			// but we do not know what implementation provider by client's web client factory
 			// probably client's web client required to dispose()
 			// so we trying to dispose safelly
-			await safeDispose(this._webClient);
+			await safeDispose(this._httpClient);
 		}
 	}
 }
 
-export default RestClient;
+export default WebClient;
 
+const DUMMY_LOGGER: zxteam.Logger = Object.freeze({
+	get isTraceEnabled(): boolean { return false; },
+	get isDebugEnabled(): boolean { return false; },
+	get isInfoEnabled(): boolean { return false; },
+	get isWarnEnabled(): boolean { return false; },
+	get isErrorEnabled(): boolean { return false; },
+	get isFatalEnabled(): boolean { return false; },
+
+	trace(message: string, ...args: any[]): void { /* NOP */ },
+	debug(message: string, ...args: any[]): void { /* NOP */ },
+	info(message: string, ...args: any[]): void { /* NOP */ },
+	warn(message: string, ...args: any[]): void { /* NOP */ },
+	error(message: string, ...args: any[]): void { /* NOP */ },
+	fatal(message: string, ...args: any[]): void { /* NOP */ }
+});
