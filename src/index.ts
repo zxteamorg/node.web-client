@@ -16,13 +16,12 @@ if (PACKAGE_GUARD in G) {
 
 import * as zxteam from "@zxteam/contract";
 import { Disposable, safeDispose } from "@zxteam/disposable";
+import { HttpClient } from "@zxteam/http-client";
 import { Limit, LimitToken, limitFactory } from "@zxteam/limit";
 
 import * as http from "http";
 import * as querystring from "querystring";
 import { URL } from "url";
-
-import { HttpClient } from "@zxteam/http-client";
 
 export namespace WebClient {
 	export interface LimitOpts {
