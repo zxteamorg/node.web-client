@@ -18,7 +18,7 @@
 				"--no-timeouts",
 				"--colors",
 				"--debug-brk",
-				"test/**/*.js"
+				"test/**/*.test.js"
 			],
 			"env": {
 				"NODE_ENV": "development"

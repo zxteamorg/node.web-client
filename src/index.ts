@@ -17,7 +17,7 @@ if (PACKAGE_GUARD in G) {
 import * as zxteam from "@zxteam/contract";
 import { Disposable, safeDispose } from "@zxteam/disposable";
 import { HttpClient } from "@zxteam/http-client";
-import { Limit, LimitToken, limitFactory } from "@zxteam/limit";
+import { Limit, limitFactory } from "@zxteam/limit";
 
 import * as http from "http";
 import * as querystring from "querystring";
@@ -45,7 +45,6 @@ export class WebClient extends Disposable {
 	protected readonly _log: zxteam.Logger;
 	protected readonly _userAgent?: string;
 	private readonly _httpClient: HttpClient.InvokeChannel;
-	private readonly _httpClientRequiredDispose: boolean;
 	private readonly _limitHandle?: { instance: Limit, timeout: number, isOwnInstance: boolean };
 
 	public constructor(url: URL | string, opts?: WebClient.Opts) {
@@ -70,17 +69,14 @@ export class WebClient extends Disposable {
 			}
 			if (httpClient && "invoke" in httpClient) {
 				this._httpClient = httpClient;
-				this._httpClientRequiredDispose = false;
 			} else {
 				this._httpClient = new HttpClient(httpClient);
-				this._httpClientRequiredDispose = false;
 			}
 			if (userAgent !== undefined) {
 				this._userAgent = userAgent;
 			}
 		} else {
 			this._httpClient = new HttpClient();
-			this._httpClientRequiredDispose = false;
 		}
 	}
 
@@ -150,7 +146,7 @@ export class WebClient extends Disposable {
 
 		let friendlyBody: Buffer | undefined = undefined;
 		let friendlyHeaders: http.OutgoingHttpHeaders = {};
-		let limitToken: LimitToken | null = null;
+		let limitToken: Limit.Token | null = null;
 		let limitWeight: number | undefined = undefined;
 
 		if (opts !== undefined) {
@@ -235,13 +231,6 @@ export class WebClient extends Disposable {
 				await this._limitHandle.instance.dispose();
 			}
 		}
-		if (this._httpClientRequiredDispose) {
-			// generally WebClientInvokeChannel is NOT disposable
-			// but we do not know what implementation provider by client's web client factory
-			// probably client's web client required to dispose()
-			// so we trying to dispose safelly
-			await safeDispose(this._httpClient);
-		}
 	}
 }
 
@@ -260,5 +249,7 @@ const DUMMY_LOGGER: zxteam.Logger = Object.freeze({
 	info(message: string, ...args: any[]): void { /* NOP */ },
 	warn(message: string, ...args: any[]): void { /* NOP */ },
 	error(message: string, ...args: any[]): void { /* NOP */ },
-	fatal(message: string, ...args: any[]): void { /* NOP */ }
+	fatal(message: string, ...args: any[]): void { /* NOP */ },
+
+	getLogger(name?: string): zxteam.Logger { return this; }
 });

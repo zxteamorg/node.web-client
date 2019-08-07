@@ -2,7 +2,8 @@ import * as http from "http";
 import { URL } from "url";
 import { assert } from "chai";
 import { CancellationToken } from "@zxteam/contract";
-import { CancelledError, DUMMY_CANCELLATION_TOKEN, Task } from "@zxteam/task";
+import { DUMMY_CANCELLATION_TOKEN, SimpleCancellationTokenSource } from "@zxteam/cancellation";
+import { CancelledError } from "@zxteam/errors";
 
 import { WebClient } from "../src/index";
 
@@ -16,7 +17,7 @@ describe("WebClient tests", function () {
 			}
 		}
 
-		it("MyApiClient GET should invoke http:// (with limit)", async function () {
+		it.only("MyApiClient GET should invoke http:// (with limit)", async function () {
 			const apiClient = new MyApiClient("http://www.google.com", {
 				limit: {
 					instance: { perSecond: 2, perMinute: 4, perHour: 50, parallel: 2 },
@@ -41,8 +42,10 @@ describe("WebClient tests", function () {
 				assert.equal(completeCount + errors.length, 4);
 			} finally {
 				await apiClient.dispose();
-				await new Promise((r) => setTimeout(r, 5));
 			}
+
+			// 4 competed
+			// 6 errors - Limit tiimeout
 			assert.equal(completeCount + errors.length, 10);
 		});
 
@@ -56,7 +59,7 @@ describe("WebClient tests", function () {
 					timeout: 1000 // timeout for web request
 				}
 			});
-			const cts = Task.createCancellationTokenSource();
+			const cts = new SimpleCancellationTokenSource();
 			const jobs: Array<Promise<void>> = [];
 			const errors: Array<any> = [];
 			let completeCount = 0;
