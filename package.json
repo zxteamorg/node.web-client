@@ -1,6 +1,6 @@
 {
 	"name": "@zxteam/web-client",
-	"version": "6.0.18",
+	"version": "6.0.19",
 	"description": "ZXTeam's Web Client. CancellationToken and Limit are supported.",
 	"author": {
 		"name": "ZXTeam",

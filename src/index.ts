@@ -15,7 +15,7 @@ if (PACKAGE_GUARD in G) {
 }
 
 import * as zxteam from "@zxteam/contract";
-import { Disposable, safeDispose } from "@zxteam/disposable";
+import { Disposable } from "@zxteam/disposable";
 import { HttpClient } from "@zxteam/http-client";
 import { Limit, limitFactory } from "@zxteam/limit";
 
@@ -60,29 +60,30 @@ export class WebClient extends Disposable {
 		if (opts !== undefined) {
 			const { limit, httpClient, userAgent } = opts;
 			if (limit) {
-				this._limitHandle = Limit.isLimitOpts(limit.instance) ?
-					{
-						instance: limitFactory(limit.instance), isOwnInstance: true, timeout: limit.timeout
-					} : {
-						instance: limit.instance, isOwnInstance: false, timeout: limit.timeout
-					};
+				this._limitHandle = Limit.isLimitOpts(limit.instance)
+					? { instance: limitFactory(limit.instance), isOwnInstance: true, timeout: limit.timeout }
+					: { instance: limit.instance, isOwnInstance: false, timeout: limit.timeout };
 			}
-			if (httpClient && "invoke" in httpClient) {
-				this._httpClient = httpClient;
+			if (httpClient !== undefined) {
+				if ("invoke" in httpClient) {
+					this._httpClient = httpClient;
+				} else {
+					this._httpClient = new HttpClient({ ...httpClient, log: this._log.getLogger("HttpClient") });
+				}
 			} else {
-				this._httpClient = new HttpClient(httpClient);
+				this._httpClient = new HttpClient({ log: this._log.getLogger("HttpClient") });
 			}
 			if (userAgent !== undefined) {
 				this._userAgent = userAgent;
 			}
 		} else {
-			this._httpClient = new HttpClient();
+			this._httpClient = new HttpClient({ log: this._log.getLogger("HttpClient") });
 		}
 	}
 
 	public get(
 		cancellationToken: zxteam.CancellationToken,
-		webMethodName: string,
+		urlPath: string,
 		opts?: {
 			queryArgs?: { [key: string]: string },
 			headers?: http.OutgoingHttpHeaders,
@@ -93,15 +94,15 @@ export class WebClient extends Disposable {
 
 		const { queryArgs = undefined, headers = undefined, limitWeight = undefined } = (() => opts || {})();
 		const path = queryArgs !== undefined ?
-			webMethodName + "?" + querystring.stringify(queryArgs) :
-			webMethodName;
+			urlPath + "?" + querystring.stringify(queryArgs) :
+			urlPath;
 
 		return this.invoke(cancellationToken, path, "GET", { headers, limitWeight });
 	}
 
 	public postForm(
 		cancellationToken: zxteam.CancellationToken,
-		webMethodName: string,
+		urlPath: string,
 		opts?: {
 			postArgs?: { [key: string]: string },
 			headers?: http.OutgoingHttpHeaders,
@@ -130,7 +131,7 @@ export class WebClient extends Disposable {
 			return headers !== undefined ? { ...baseHeaders, ...headers } : baseHeaders;
 		})();
 
-		return this.invoke(cancellationToken, webMethodName, "POST", { body: body, headers: friendlyHeaders, limitWeight });
+		return this.invoke(cancellationToken, urlPath, "POST", { body: body, headers: friendlyHeaders, limitWeight });
 	}
 
 	public async invoke(
@@ -147,7 +148,7 @@ export class WebClient extends Disposable {
 		let friendlyBody: Buffer | undefined = undefined;
 		let friendlyHeaders: http.OutgoingHttpHeaders = {};
 		let limitToken: Limit.Token | null = null;
-		let limitWeight: number | undefined = undefined;
+		let limitWeight: number = 1;
 
 		if (opts !== undefined) {
 			const { headers, body } = opts;
@@ -180,16 +181,9 @@ export class WebClient extends Disposable {
 
 		try {
 			if (this._limitHandle !== undefined) {
-				const weight = limitWeight !== undefined ? limitWeight : 1;
-				if (cancellationToken !== undefined) {
-					limitToken = await this._limitHandle.instance.accrueTokenLazy(weight, this._limitHandle.timeout, cancellationToken);
-				} else {
-					limitToken = await this._limitHandle.instance.accrueTokenLazy(weight, this._limitHandle.timeout);
-				}
+				limitToken = await this._limitHandle.instance.accrueTokenLazy(limitWeight, this._limitHandle.timeout, cancellationToken);
 			} else {
-				if (limitWeight !== undefined) {
-					friendlyHeaders["X-Limit-Weight"] = limitWeight;
-				}
+				friendlyHeaders["X-Limit-Weight"] = limitWeight;
 			}
 
 			const url: URL = new URL(path, this._baseUrl);
@@ -215,7 +209,7 @@ export class WebClient extends Disposable {
 		} catch (e) {
 			if (limitToken !== null) {
 				if (e instanceof HttpClient.CommunicationError) {
-					// Token was not spent due server side did not work any job
+					// Token was not spent due server side did not do any jobs
 					limitToken.rollback();
 				} else {
 					limitToken.commit();

@@ -17,8 +17,8 @@ describe("WebClient tests", function () {
 			}
 		}
 
-		it.only("MyApiClient GET should invoke http:// (with limit)", async function () {
-			const apiClient = new MyApiClient("http://www.google.com", {
+		it("MyApiClient GET should invoke http:// (with limit)", async function () {
+			const apiClient = new MyApiClient("http://echo.org", {
 				limit: {
 					instance: { perSecond: 2, perMinute: 4, perHour: 50, parallel: 2 },
 					timeout: 3000 // timeout for accure token
