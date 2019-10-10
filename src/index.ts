@@ -30,7 +30,7 @@ export namespace WebClient {
 	}
 
 	export interface Opts {
-		readonly httpClient?: HttpClient.Opts | HttpClient.InvokeChannel;
+		readonly httpClient?: HttpClient.Opts | HttpClient.HttpInvokeChannel;
 		readonly limit?: LimitOpts;
 		readonly log?: zxteam.Logger;
 		readonly userAgent?: string;
@@ -44,7 +44,7 @@ export class WebClient extends Disposable {
 	protected readonly _baseUrl: URL;
 	protected readonly _log: zxteam.Logger;
 	protected readonly _userAgent?: string;
-	private readonly _httpClient: HttpClient.InvokeChannel;
+	private readonly _httpClient: HttpClient.HttpInvokeChannel;
 	private readonly _limitHandle?: { instance: Limit, timeout: number, isOwnInstance: boolean };
 
 	public constructor(url: URL | string, opts?: WebClient.Opts) {
@@ -59,7 +59,7 @@ export class WebClient extends Disposable {
 
 		if (opts !== undefined) {
 			const { limit, httpClient, userAgent } = opts;
-			if (limit) {
+			if (limit !== undefined) {
 				this._limitHandle = Limit.isLimitOpts(limit.instance)
 					? { instance: limitFactory(limit.instance), isOwnInstance: true, timeout: limit.timeout }
 					: { instance: limit.instance, isOwnInstance: false, timeout: limit.timeout };
@@ -134,7 +134,7 @@ export class WebClient extends Disposable {
 		return this.invoke(cancellationToken, urlPath, "POST", { body: body, headers: friendlyHeaders, limitWeight });
 	}
 
-	public async invoke(
+	protected async invoke(
 		cancellationToken: zxteam.CancellationToken,
 		path: string,
 		method: HttpClient.HttpMethod | string,
@@ -191,14 +191,14 @@ export class WebClient extends Disposable {
 			const invokeResponse: HttpClient.Response =
 				await this._httpClient.invoke(cancellationToken, { url, method, body: friendlyBody, headers: friendlyHeaders });
 
-			const { statusCode, statusMessage, headers: responseHeaders, body } = invokeResponse;
+			const { statusCode, statusDescription, headers: responseHeaders, body } = invokeResponse;
 
 			const response: WebClient.Response = {
 				get statusCode() { return statusCode; },
-				get statusMessage() { return statusMessage; },
+				get statusDescription() { return statusDescription; },
 				get headers() { return responseHeaders; },
 				get body() { return body; },
-				get bodyAsJson() { return JSON.parse(invokeResponse.body.toString()); }
+				get bodyAsJson() { return JSON.parse(body.toString()); }
 			};
 
 			if (limitToken !== null) {

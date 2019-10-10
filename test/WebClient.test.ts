@@ -2,7 +2,7 @@ import * as http from "http";
 import { URL } from "url";
 import { assert } from "chai";
 import { CancellationToken } from "@zxteam/contract";
-import { DUMMY_CANCELLATION_TOKEN, SimpleCancellationTokenSource } from "@zxteam/cancellation";
+import { DUMMY_CANCELLATION_TOKEN, ManualCancellationTokenSource } from "@zxteam/cancellation";
 import { CancelledError } from "@zxteam/errors";
 
 import { WebClient } from "../src/index";
@@ -59,7 +59,7 @@ describe("WebClient tests", function () {
 					timeout: 1000 // timeout for web request
 				}
 			});
-			const cts = new SimpleCancellationTokenSource();
+			const cts = new ManualCancellationTokenSource();
 			const jobs: Array<Promise<void>> = [];
 			const errors: Array<any> = [];
 			let completeCount = 0;

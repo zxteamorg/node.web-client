@@ -17,13 +17,13 @@ async function main() {
 		const response: WebClient.Response = await webClient.get(cancellationToken, "ip");
 
 		const statusCode: number = response.statusCode;
-		const statusMessage: string = response.statusMessage;
+		const statusDescription: string = response.statusDescription;
 		const headers: http.IncomingHttpHeaders = response.headers;
 		const body: Buffer = response.body;
 		const bodyJson: any = response.bodyAsJson;
 
 		console.log(statusCode);
-		console.log(statusMessage);
+		console.log(statusDescription);
 		console.log(headers);
 		console.log(body.toString());
 		console.log(bodyJson);
