@@ -1,4 +1,4 @@
-const { name: packageName, version: packageVersion } = require(require("path").join(__dirname, "..", "package.json"));
+const { name: packageName, version: packageVersion } = require("../package.json");
 const G: any = global || window || {};
 const PACKAGE_GUARD: symbol = Symbol.for(packageName);
 if (PACKAGE_GUARD in G) {
@@ -21,7 +21,6 @@ import { Limit, limitFactory } from "@zxteam/limit";
 
 import * as http from "http";
 import * as querystring from "querystring";
-import { URL } from "url";
 
 export namespace WebClient {
 	export interface LimitOpts {
