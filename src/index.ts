@@ -14,7 +14,7 @@ if (PACKAGE_GUARD in G) {
 	G[PACKAGE_GUARD] = packageVersion;
 }
 
-import * as zxteam from "@zxteam/contract";
+import { CancellationToken, Logger } from "@zxteam/contract";
 import { Disposable } from "@zxteam/disposable";
 import { HttpClient } from "@zxteam/http-client";
 import { Limit, limitFactory } from "@zxteam/limit";
@@ -31,7 +31,7 @@ export namespace WebClient {
 	export interface Opts {
 		readonly httpClient?: HttpClient.Opts | HttpClient.HttpInvokeChannel;
 		readonly limit?: LimitOpts;
-		readonly log?: zxteam.Logger;
+		readonly log?: Logger;
 		readonly userAgent?: string;
 	}
 
@@ -41,7 +41,7 @@ export namespace WebClient {
 }
 export class WebClient extends Disposable {
 	protected readonly _baseUrl: URL;
-	protected readonly _log: zxteam.Logger;
+	protected readonly _log: Logger;
 	protected readonly _userAgent?: string;
 	private readonly _httpClient: HttpClient.HttpInvokeChannel;
 	private readonly _limitHandle?: { instance: Limit, timeout: number, isOwnInstance: boolean };
@@ -81,7 +81,7 @@ export class WebClient extends Disposable {
 	}
 
 	public get(
-		cancellationToken: zxteam.CancellationToken,
+		cancellationToken: CancellationToken,
 		urlPath: string,
 		opts?: {
 			queryArgs?: { [key: string]: string },
@@ -99,11 +99,34 @@ export class WebClient extends Disposable {
 		return this.invoke(cancellationToken, path, "GET", { headers, limitWeight });
 	}
 
-	public postForm(
-		cancellationToken: zxteam.CancellationToken,
+	public postJson(
+		cancellationToken: CancellationToken,
 		urlPath: string,
-		opts?: {
-			postArgs?: { [key: string]: string },
+		opts: {
+			postData: any,
+			headers?: http.OutgoingHttpHeaders,
+			limitWeight?: number
+		}
+	): Promise<WebClient.Response> {
+		// Serialize JSON if body is object
+		const friendlyBody: Buffer = Buffer.from(JSON.stringify(opts.postData));
+		const friendlyHeaders: http.OutgoingHttpHeaders = opts.headers !== undefined ? { ...opts.headers } : {};
+		if (!("Content-Type" in friendlyHeaders)) {
+			friendlyHeaders["Content-Type"] = "application/json";
+		}
+		friendlyHeaders["Content-Length"] = friendlyBody.byteLength;
+
+		return this.invoke(cancellationToken, urlPath, "POST", {
+			headers: friendlyHeaders,
+			body: friendlyBody
+		});
+	}
+
+	public postForm(
+		cancellationToken: CancellationToken,
+		urlPath: string,
+		opts: {
+			postArgs: { [key: string]: string },
 			headers?: http.OutgoingHttpHeaders,
 			limitWeight?: number
 		}
@@ -130,21 +153,25 @@ export class WebClient extends Disposable {
 			return headers !== undefined ? { ...baseHeaders, ...headers } : baseHeaders;
 		})();
 
-		return this.invoke(cancellationToken, urlPath, "POST", { body: body, headers: friendlyHeaders, limitWeight });
+		return this.invoke(cancellationToken, urlPath, "POST", {
+			body,
+			headers: friendlyHeaders,
+			limitWeight
+		});
 	}
 
 	protected async invoke(
-		cancellationToken: zxteam.CancellationToken,
+		cancellationToken: CancellationToken,
 		path: string,
 		method: HttpClient.HttpMethod | string,
 		opts?: {
 			headers?: http.OutgoingHttpHeaders,
-			body?: Buffer | any,
+			body?: Buffer,
 			limitWeight?: number
 		}): Promise<WebClient.Response> {
 		super.verifyNotDisposed();
 
-		let friendlyBody: Buffer | undefined = undefined;
+		let friendlyBody: Buffer | null = null;
 		let friendlyHeaders: http.OutgoingHttpHeaders = {};
 		let limitToken: Limit.Token | null = null;
 		let limitWeight: number = 1;
@@ -161,16 +188,7 @@ export class WebClient extends Disposable {
 			}
 
 			if (body !== undefined) {
-				if (body instanceof Buffer) {
-					friendlyBody = body;
-				} else {
-					// Serialize JSON if body is object
-					friendlyBody = Buffer.from(JSON.stringify(body));
-					if (!("Content-Type" in friendlyHeaders)) {
-						friendlyHeaders["Content-Type"] = "application/json";
-						friendlyHeaders["Content-Length"] = friendlyBody.byteLength;
-					}
-				}
+				friendlyBody = body;
 			}
 
 			if (opts.limitWeight !== undefined) {
@@ -187,8 +205,14 @@ export class WebClient extends Disposable {
 
 			const url: URL = new URL(path, this._baseUrl);
 
+			const invokeArgs: { -readonly [P in keyof HttpClient.Request]: HttpClient.Request[P]; } = {
+				url, method, headers: friendlyHeaders
+			};
+			if (friendlyBody !== null) {
+				invokeArgs.body = friendlyBody;
+			}
 			const invokeResponse: HttpClient.Response =
-				await this._httpClient.invoke(cancellationToken, { url, method, body: friendlyBody, headers: friendlyHeaders });
+				await this._httpClient.invoke(cancellationToken, invokeArgs);
 
 			const { statusCode, statusDescription, headers: responseHeaders, body } = invokeResponse;
 
@@ -229,7 +253,7 @@ export class WebClient extends Disposable {
 
 export default WebClient;
 
-const DUMMY_LOGGER: zxteam.Logger = Object.freeze({
+const DUMMY_LOGGER: Logger = Object.freeze({
 	get isTraceEnabled(): boolean { return false; },
 	get isDebugEnabled(): boolean { return false; },
 	get isInfoEnabled(): boolean { return false; },
@@ -244,5 +268,5 @@ const DUMMY_LOGGER: zxteam.Logger = Object.freeze({
 	error(message: string, ...args: any[]): void { /* NOP */ },
 	fatal(message: string, ...args: any[]): void { /* NOP */ },
 
-	getLogger(name?: string): zxteam.Logger { return this; }
+	getLogger(name?: string): Logger { return this; }
 });

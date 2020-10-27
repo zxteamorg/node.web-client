@@ -1,6 +1,6 @@
 {
 	"name": "@zxteam/web-client",
-	"version": "6.0.62",
+	"version": "6.0.66",
 	"description": "ZXTeam's Web Client. CancellationToken and Limit are supported.",
 	"author": {
 		"name": "ZXTeam",
@@ -20,7 +20,7 @@
 	],
 	"license": "MIT",
 	"devDependencies": {
-		"@types/node": "^11.15.18",
+		"@types/node": "^11.15.21",
 		"@zxnode/build": "^0.0.38",
 		"@zxteam/cancellation": "^6.0.62",
 		"@zxteam/errors": "^6.0.62"
@@ -28,7 +28,7 @@
 	"dependencies": {
 		"@zxteam/contract": "^6.0.62",
 		"@zxteam/disposable": "^6.0.63",
-		"@zxteam/http-client": "^6.0.63",
+		"@zxteam/http-client": "^6.0.66",
 		"@zxteam/limit": "^6.0.63"
 	},
 	"engines": {
